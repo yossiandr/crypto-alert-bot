@@ -19,13 +19,20 @@ log = logging.getLogger(__name__)
 
 # ─── KEYWORDS ──────────────────────────────────────────────────────────────────
 KEYWORDS = [
+    # Delisting
     "delist", "delisting", "will delist",
+    "removal", "remove trading pair",
+    # Migration & Contract
     "migration", "migrate", "token migration",
     "contract change", "contract address",
-    "ticker change", "ticker symbol",
     "token swap", "token rebranding",
-    "network upgrade", "symbol change",
-    "removal", "remove trading pair",
+    # Ticker & Symbol
+    "ticker change", "ticker symbol", "symbol change",
+    # Network & Upgrade
+    "network upgrade", "mainnet upgrade", "mainnet launch",
+    "hard fork", "hardfork", "hard-fork",
+    "chain upgrade", "protocol upgrade",
+    "snapshot", "airdrop snapshot",
 ]
 
 # ─── CEX SOURCES ───────────────────────────────────────────────────────────────
@@ -194,10 +201,29 @@ def check_all():
             fetch_scrape(source)
     log.info("✅ Selesai pengecekan.")
 
+# ─── TEST MESSAGE ──────────────────────────────────────────────────────────────
+def send_test_message():
+    msg = (
+        "🤖 <b>Crypto CEX Alarm Bot Aktif!</b>\n\n"
+        "✅ Bot berhasil terhubung ke channel ini.\n"
+        "📡 Memantau: Binance, Bybit, OKX, KuCoin, Gate.io, MEXC, BingX\n"
+        "⏱ Pengecekan setiap <b>5 menit</b> otomatis.\n\n"
+        "🔔 Kamu akan dapat notif saat ada:\n"
+        "• Delisting koin\n"
+        "• Token migration\n"
+        "• Contract change\n"
+        "• Ticker/symbol change\n\n"
+        "<i>Bot siap jalan 24 jam!</i> 🚀"
+    )
+    send_telegram(msg)
+
 # ─── ENTRY POINT ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     init_db()
     log.info("🚀 Bot dimulai!")
+
+    # Kirim pesan test ke channel
+    send_test_message()
 
     # Jalankan sekali langsung saat start
     check_all()
