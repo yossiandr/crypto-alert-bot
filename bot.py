@@ -225,16 +225,17 @@ def fetch_scrape(source):
             if not is_relevant(title):
                 continue
             normalized_title = title.lower().strip()
-            # Hindari duplicate dalam 1 page
+            # Prevent duplicate title in same page
             if normalized_title in seen_titles:
                 continue
             seen_titles.add(normalized_title)
-            # Build URL
+            # Build full URL
             if href.startswith("/"):
                 base = "/".join(source["url"].split("/")[:3])
                 href = base + href
             elif not href.startswith("http"):
                 continue
+            # Unique ID based on title
             uid = f"{source['name']}::{normalized_title}"
             if is_seen(uid):
                 continue
@@ -287,7 +288,12 @@ if __name__ == "__main__":
     init_db()
     log.info("🚀 Bot dimulai!")
     send_test_message()
-    check_all()
     scheduler = BlockingScheduler(timezone="UTC")
-    scheduler.add_job(check_all, "interval", minutes=CHECK_EVERY)
+    scheduler.add_job(
+        check_all,
+        "interval",
+        minutes=CHECK_EVERY,
+        max_instances=1,
+        coalesce=True
+    )
     scheduler.start()
