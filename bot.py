@@ -9,8 +9,8 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from bs4 import BeautifulSoup
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────────
-BOT_TOKEN   = os.environ.get("BOT_TOKEN", "ISI_TOKEN_BOT_KAMU")
-CHANNEL_ID  = os.environ.get("CHANNEL_ID", "@nama_channel_kamu")
+BOT_TOKEN   = os.environ.get("BOT_TOKEN", "8933095824:AAGpH6FkvPiMOsdwmo64j_wb5drqqwrhqDg")
+CHANNEL_ID  = os.environ.get("CHANNEL_ID", "@cex_alertbot")
 CHECK_EVERY = 5   # menit
 DB_PATH     = "seen.db"
 
