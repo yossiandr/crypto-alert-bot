@@ -216,20 +216,37 @@ def fetch_scrape(source):
     try:
         r = requests.get(source["url"], headers=HEADERS, timeout=15)
         soup = BeautifulSoup(r.text, "html.parser")
+        seen_titles = set()
         for a in soup.find_all("a", href=True):
             title = a.get_text(strip=True)
             href  = a["href"]
-            if len(title) < 15 or not is_relevant(title):
+            if len(title) < 15:
                 continue
+            if not is_relevant(title):
+                continue
+            normalized_title = title.lower().strip()
+            # Hindari duplicate dalam 1 page
+            if normalized_title in seen_titles:
+                continue
+            seen_titles.add(normalized_title)
+            # Build URL
             if href.startswith("/"):
                 base = "/".join(source["url"].split("/")[:3])
                 href = base + href
             elif not href.startswith("http"):
                 continue
-            if is_seen(href):
+            uid = f"{source['name']}::{normalized_title}"
+            if is_seen(uid):
                 continue
-            mark_seen(href)
-            send_telegram(format_message(source["logo"], source["name"], title, href))
+            mark_seen(uid)
+            send_telegram(
+                format_message(
+                    source["logo"],
+                    source["name"],
+                    title,
+                    href
+                )
+            )
             time.sleep(1)
     except Exception as e:
         log.error(f"❌ Error scrape {source['name']}: {e}")
