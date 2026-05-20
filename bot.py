@@ -9,10 +9,13 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from bs4 import BeautifulSoup
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────────
-BOT_TOKEN   = os.environ.get("BOT_TOKEN", "8933095824:AAGpH6FkvPiMOsdwmo64j_wb5drqqwrhqDg")
-CHANNEL_ID  = os.environ.get("CHANNEL_ID", "@cex_alertbot")
+BOT_TOKEN   = os.environ.get("BOT_TOKEN")
+CHANNEL_ID  = os.environ.get("CHANNEL_ID")
 CHECK_EVERY = 5
 DB_PATH     = "seen.db"
+
+if not BOT_TOKEN or not CHANNEL_ID:
+    raise ValueError("BOT_TOKEN dan CHANNEL_ID harus diisi di Railway Variables!")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -44,71 +47,57 @@ KEYWORDS = [
 
 # ─── CEX SOURCES ───────────────────────────────────────────────────────────────
 SOURCES = [
-    # Binance: API resmi - list 161 (delisting) & 157 (network/wallet)
+    # Binance catalogId=48 = parent semua announcement (berisi 157 & 161)
     {
         "name": "Binance",
         "type": "binance_api",
-        "url": "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20&catalogId=161",
+        "url": "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20&catalogId=48",
         "logo": "🟡",
         "base_link": "https://www.binance.com/en/support/announcement/",
     },
-    {
-        "name": "Binance",
-        "type": "binance_api",
-        "url": "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20&catalogId=157",
-        "logo": "🟡",
-        "base_link": "https://www.binance.com/en/support/announcement/",
-    },
-    # Bybit: scrape halaman semua announcement
     {
         "name": "Bybit",
-        "type": "scrape",
+        "type": "bybit_scrape",
         "url": "https://announcements.bybit.com/en/?category=&page=1",
         "logo": "🟠",
+        "base_link": "https://announcements.bybit.com",
     },
-    # OKX: scrape halaman latest announcements
     {
         "name": "OKX",
         "type": "scrape",
         "url": "https://www.okx.com/help/section/announcements-latest-announcements",
         "logo": "⚫",
     },
-    # KuCoin: scrape halaman announcement
     {
         "name": "KuCoin",
         "type": "kucoin_api",
         "url": "https://api.kucoin.com/api/ua/v1/market/announcement?annType=latest-announcements&lang=en_US&page=1&pageSize=20",
         "logo": "🟢",
     },
-    # Gate.io: scrape halaman announcement
     {
         "name": "Gate.io",
         "type": "scrape",
         "url": "https://www.gate.com/announcements/lastest",
         "logo": "🔵",
     },
-    # MEXC: scrape halaman delisting
     {
         "name": "MEXC",
         "type": "scrape",
         "url": "https://www.mexc.com/support/sections/360000030572",
         "logo": "🔷",
     },
-    # BingX: scrape halaman announcement
     {
         "name": "BingX",
         "type": "scrape",
         "url": "https://bingx.com/en/support/categories/360002065274",
         "logo": "🟣",
     },
-    # Poloniex: scrape halaman latest announcements
     {
         "name": "Poloniex",
         "type": "scrape",
         "url": "https://support.poloniex.com/hc/en-us/sections/360006455114-Latest-Announcements",
         "logo": "🔴",
     },
-    # HTX: scrape halaman support/announcement
     {
         "name": "HTX",
         "type": "scrape",
@@ -171,10 +160,19 @@ HEADERS = {
 # ─── FETCHERS ──────────────────────────────────────────────────────────────────
 
 def fetch_binance_api(source):
-    log.info(f"🔌 Cek API: {source['name']} ({source['url'][-3:]})")
+    log.info("🔌 Cek API: Binance")
     try:
         r = requests.get(source["url"], headers=HEADERS, timeout=15)
-        articles = r.json().get("data", {}).get("articles", [])
+        data = r.json()
+        # Binance bisa return di catalogs[0].articles atau langsung articles
+        catalogs = data.get("data", {}).get("catalogs", [])
+        articles = []
+        if catalogs:
+            for cat in catalogs:
+                articles.extend(cat.get("articles", []))
+        else:
+            articles = data.get("data", {}).get("articles", [])
+
         for article in articles:
             title = article.get("title", "")
             code  = article.get("code", "")
@@ -187,11 +185,38 @@ def fetch_binance_api(source):
             send_telegram(format_message(source["logo"], source["name"], title, link))
             time.sleep(1)
     except Exception as e:
-        log.error(f"❌ Error API {source['name']}: {e}")
+        log.error(f"❌ Error API Binance: {e}")
+
+
+def fetch_bybit_scrape(source):
+    log.info("🕷️  Scrape: Bybit")
+    try:
+        r = requests.get(source["url"], headers=HEADERS, timeout=15)
+        soup = BeautifulSoup(r.text, "html.parser")
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if "/en/detail/" not in href:
+                continue
+            # Ambil judul dari elemen terdalam yang punya teks
+            title_tag = a.find(["h3", "h4", "p", "span", "div"])
+            title = title_tag.get_text(strip=True) if title_tag else a.get_text(strip=True)
+            # Potong jika ada teks metadata
+            title = title.split("  ")[0].strip()
+            if len(title) < 10 or not is_relevant(title):
+                continue
+            if href.startswith("/"):
+                href = source["base_link"] + href
+            if is_seen(href):
+                continue
+            mark_seen(href)
+            send_telegram(format_message(source["logo"], source["name"], title, href))
+            time.sleep(1)
+    except Exception as e:
+        log.error(f"❌ Error scrape Bybit: {e}")
 
 
 def fetch_kucoin_api(source):
-    log.info(f"🔌 Cek API: {source['name']}")
+    log.info("🔌 Cek API: KuCoin")
     try:
         r = requests.get(source["url"], headers=HEADERS, timeout=15)
         data = r.json()
@@ -208,7 +233,7 @@ def fetch_kucoin_api(source):
             send_telegram(format_message(source["logo"], source["name"], title, url))
             time.sleep(1)
     except Exception as e:
-        log.error(f"❌ Error API {source['name']}: {e}")
+        log.error(f"❌ Error API KuCoin: {e}")
 
 
 def fetch_scrape(source):
@@ -216,38 +241,26 @@ def fetch_scrape(source):
     try:
         r = requests.get(source["url"], headers=HEADERS, timeout=15)
         soup = BeautifulSoup(r.text, "html.parser")
-        seen_titles = set()
+        seen_uids = set()
         for a in soup.find_all("a", href=True):
-            title = a.get_text(strip=True)
             href  = a["href"]
-            if len(title) < 15:
+            title = a.get_text(separator=" ", strip=True)
+            # Judul artikel wajar < 200 karakter
+            if len(title) < 15 or len(title) > 200:
                 continue
             if not is_relevant(title):
                 continue
-            normalized_title = title.lower().strip()
-            # Prevent duplicate title in same page
-            if normalized_title in seen_titles:
-                continue
-            seen_titles.add(normalized_title)
-            # Build full URL
             if href.startswith("/"):
                 base = "/".join(source["url"].split("/")[:3])
                 href = base + href
             elif not href.startswith("http"):
                 continue
-            # Unique ID based on title
-            uid = f"{source['name']}::{normalized_title}"
-            if is_seen(uid):
+            uid = href
+            if uid in seen_uids or is_seen(uid):
                 continue
+            seen_uids.add(uid)
             mark_seen(uid)
-            send_telegram(
-                format_message(
-                    source["logo"],
-                    source["name"],
-                    title,
-                    href
-                )
-            )
+            send_telegram(format_message(source["logo"], source["name"], title, href))
             time.sleep(1)
     except Exception as e:
         log.error(f"❌ Error scrape {source['name']}: {e}")
@@ -261,6 +274,8 @@ def check_all():
             fetch_binance_api(source)
         elif t == "kucoin_api":
             fetch_kucoin_api(source)
+        elif t == "bybit_scrape":
+            fetch_bybit_scrape(source)
         elif t == "scrape":
             fetch_scrape(source)
     log.info("✅ Selesai pengecekan.")
@@ -288,12 +303,7 @@ if __name__ == "__main__":
     init_db()
     log.info("🚀 Bot dimulai!")
     send_test_message()
+    check_all()
     scheduler = BlockingScheduler(timezone="UTC")
-    scheduler.add_job(
-        check_all,
-        "interval",
-        minutes=CHECK_EVERY,
-        max_instances=1,
-        coalesce=True
-    )
+    scheduler.add_job(check_all, "interval", minutes=CHECK_EVERY, max_instances=1, coalesce=True)
     scheduler.start()
