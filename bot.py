@@ -47,11 +47,18 @@ KEYWORDS = [
 
 # ─── CEX SOURCES ───────────────────────────────────────────────────────────────
 SOURCES = [
-    # Binance catalogId=48 = parent semua announcement (berisi 157 & 161)
+    # Binance: API resmi - list 161 (delisting) & 157 (network/wallet)
     {
         "name": "Binance",
         "type": "binance_api",
-        "url": "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20&catalogId=48",
+        "url": "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20&catalogId=161",
+        "logo": "🟡",
+        "base_link": "https://www.binance.com/en/support/announcement/",
+    },
+    {
+        "name": "Binance",
+        "type": "binance_api",
+        "url": "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20&catalogId=157",
         "logo": "🟡",
         "base_link": "https://www.binance.com/en/support/announcement/",
     },
@@ -74,11 +81,20 @@ SOURCES = [
         "url": "https://api.kucoin.com/api/ua/v1/market/announcement?annType=latest-announcements&lang=en_US&page=1&pageSize=20",
         "logo": "🟢",
     },
+# Gate.io — pakai API JSON langsung (bukan scrape, karena JS rendering)
     {
         "name": "Gate.io",
-        "type": "scrape",
-        "url": "https://www.gate.com/announcements/lastest",
+        "type": "gate_api",
+        "url": "https://www.gate.com/api/v1/announcement/list?language=en&type=delisted&page=1&limit=20",
         "logo": "🔵",
+        "base_link": "https://www.gate.com/announcements/article/",
+    },
+    {
+        "name": "Gate.io",
+        "type": "gate_api",
+        "url": "https://www.gate.com/api/v1/announcement/list?language=en&type=deposit-withdrawal&page=1&limit=20",
+        "logo": "🔵",
+        "base_link": "https://www.gate.com/announcements/article/",
     },
     {
         "name": "MEXC",
