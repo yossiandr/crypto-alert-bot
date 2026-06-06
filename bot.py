@@ -85,7 +85,7 @@ SOURCES = [
     },
     {
         "name": "Gate.io",
-        "type": "gate_scrape",
+        "type": "gate_api",
         "url": "https://www.gate.com/announcements/latest",
         "logo": "🔵",
     },
@@ -366,7 +366,7 @@ def check_all():
         elif t == "binance_api":
             fetch_binance_api(source)
         elif t == "gate_scrape":
-            fetch_gate_scrape(source)
+            fetch_gate_api(source)
         elif t == "kucoin_api":
             fetch_kucoin_api(source)
         elif t == "bybit_scrape":
