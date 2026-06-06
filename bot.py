@@ -51,6 +51,7 @@ SOURCES = [
     {
         "name": "Binance",
         "type": "binance_api",
+        "catalog_id": 161,
         "url": "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20&catalogId=161",
         "logo": "🟡",
         "base_link": "https://www.binance.com/en/support/announcement/",
@@ -58,6 +59,7 @@ SOURCES = [
     {
         "name": "Binance",
         "type": "binance_api",
+        "catalog_id": 157,
         "url": "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20&catalogId=157",
         "logo": "🟡",
         "base_link": "https://www.binance.com/en/support/announcement/",
@@ -81,20 +83,11 @@ SOURCES = [
         "url": "https://api.kucoin.com/api/ua/v1/market/announcement?annType=latest-announcements&lang=en_US&page=1&pageSize=20",
         "logo": "🟢",
     },
-# Gate.io — pakai API JSON langsung (bukan scrape, karena JS rendering)
     {
         "name": "Gate.io",
-        "type": "gate_api",
-        "url": "https://www.gate.com/api/v1/announcement/list?language=en&type=delisted&page=1&limit=20",
+        "type": "gate_scrape",
+        "url": "https://www.gate.com/announcements/latest",
         "logo": "🔵",
-        "base_link": "https://www.gate.com/announcements/article/",
-    },
-    {
-        "name": "Gate.io",
-        "type": "gate_api",
-        "url": "https://www.gate.com/api/v1/announcement/list?language=en&type=deposit-withdrawal&page=1&limit=20",
-        "logo": "🔵",
-        "base_link": "https://www.gate.com/announcements/article/",
     },
     {
         "name": "MEXC",
@@ -213,7 +206,7 @@ def fetch_binance_api(source):
         if catalogs:
             # Cari catalog yang sesuai catalog_id
             for cat_data in catalogs:
-                if cat_data.get("catalogId") == source.get("catalog_id"):
+                if str(cat_data.get("catalogId")) == str(source.get("catalog_id")):
                     articles = cat_data.get("articles", [])
                     break
             # Kalau tidak ketemu, ambil semua
@@ -241,11 +234,18 @@ def fetch_binance_api(source):
 
 
 def fetch_gate_api(source):
-    log.info(f"🔌 Cek API: Gate.io")
+    log.info("🔌 Cek API: Gate.io")
     try:
-        r = requests.get(source["url"], headers=HEADERS, timeout=15)
+        r = requests.get(
+            source["url"],
+            headers=HEADERS,
+            timeout=15
+        )
+        log.info(f"STATUS: {r.status_code}")
+        log.info(f"CONTENT-TYPE: {r.headers.get('Content-Type')}")
+        # tampilkan sebagian response
+        log.info(f"RESPONSE: {r.text[:1000]}")
         data = r.json()
-        # Coba beberapa struktur response Gate.io
         items = (
             data.get("data", {}).get("list", [])
             or data.get("data", [])
@@ -255,15 +255,25 @@ def fetch_gate_api(source):
         log.info(f"   → {len(items)} artikel ditemukan")
         for item in items:
             title = item.get("title", "") or item.get("name", "")
-            uid   = str(item.get("id", "") or item.get("article_id", ""))
-            link  = item.get("url", "") or f"{source['base_link']}{uid}"
+            uid = str(item.get("id", "") or item.get("article_id", ""))
+            link = (
+                item.get("url", "")
+                or f"{source['base_link']}{uid}"
+            )
             if not uid or not is_relevant(title):
                 continue
             uid_key = f"gate_{uid}"
             if is_seen(uid_key):
                 continue
             mark_seen(uid_key)
-            send_telegram(format_message(source["logo"], source["name"], title, link))
+            send_telegram(
+                format_message(
+                    source["logo"],
+                    source["name"],
+                    title,
+                    link
+                )
+            )
             time.sleep(1)
     except Exception as e:
         log.error(f"❌ Error API Gate.io: {e}")
@@ -355,8 +365,8 @@ def check_all():
             fetch_binance_scrape(source)
         elif t == "binance_api":
             fetch_binance_api(source)
-        elif t == "gate_api":
-            fetch_gate_api(source)
+        elif t == "gate_scrape":
+            fetch_gate_scrape(source)
         elif t == "kucoin_api":
             fetch_kucoin_api(source)
         elif t == "bybit_scrape":
