@@ -13,6 +13,7 @@ BOT_TOKEN   = os.environ.get("BOT_TOKEN")
 CHANNEL_ID  = os.environ.get("CHANNEL_ID")
 CHECK_EVERY = 2
 DB_PATH     = "seen.db"
+FIRST_RUN = not os.path.exists(DB_PATH)
 
 if not BOT_TOKEN or not CHANNEL_ID:
     raise ValueError("BOT_TOKEN dan CHANNEL_ID harus diisi di Railway Variables!")
@@ -88,6 +89,7 @@ SOURCES = [
         "type": "gate_api",
         "url": "https://www.gate.com/announcements/latest",
         "logo": "🔵",
+        "base_link": "https://www.gate.com/announcements/latest",
     },
     {
         "name": "MEXC",
@@ -188,6 +190,8 @@ def fetch_binance_scrape(source):
             if is_seen(uid):
                 continue
             mark_seen(uid)
+            if FIRST_RUN:
+                continue
             send_telegram(format_message(source["logo"], source["name"], title, href))
             time.sleep(1)
     except Exception as e:
@@ -226,6 +230,8 @@ def fetch_binance_api(source):
             if is_seen(uid):
                 continue
             mark_seen(uid)
+            if FIRST_RUN:
+                continue
             link = f"{source['base_link']}{code}"
             send_telegram(format_message(source["logo"], source["name"], title, link))
             time.sleep(1)
@@ -266,6 +272,8 @@ def fetch_gate_api(source):
             if is_seen(uid_key):
                 continue
             mark_seen(uid_key)
+            if FIRST_RUN:
+                continue
             send_telegram(
                 format_message(
                     source["logo"],
@@ -300,6 +308,8 @@ def fetch_bybit_scrape(source):
             if is_seen(href):
                 continue
             mark_seen(href)
+            if FIRST_RUN:
+                continue
             send_telegram(format_message(source["logo"], source["name"], title, href))
             time.sleep(1)
     except Exception as e:
@@ -321,6 +331,8 @@ def fetch_kucoin_api(source):
             if is_seen(uid):
                 continue
             mark_seen(uid)
+            if FIRST_RUN:
+                continue
             send_telegram(format_message(source["logo"], source["name"], title, url))
             time.sleep(1)
     except Exception as e:
@@ -351,6 +363,8 @@ def fetch_scrape(source):
                 continue
             seen_uids.add(uid)
             mark_seen(uid)
+            if FIRST_RUN:
+                continue
             send_telegram(format_message(source["logo"], source["name"], title, href))
             time.sleep(1)
     except Exception as e:
@@ -365,7 +379,7 @@ def check_all():
             fetch_binance_scrape(source)
         elif t == "binance_api":
             fetch_binance_api(source)
-        elif t == "gate_scrape":
+        elif t == "gate_api":
             fetch_gate_api(source)
         elif t == "kucoin_api":
             fetch_kucoin_api(source)
@@ -399,6 +413,7 @@ if __name__ == "__main__":
     log.info("🚀 Bot dimulai!")
     send_test_message()
     check_all()
+    FIRST_RUN = False
     scheduler = BlockingScheduler(timezone="UTC")
     scheduler.add_job(check_all, "interval", minutes=CHECK_EVERY, max_instances=1, coalesce=True)
     scheduler.start()
