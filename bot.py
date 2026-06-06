@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 # ─── CONFIG ────────────────────────────────────────────────────────────────────
 BOT_TOKEN   = os.environ.get("BOT_TOKEN")
 CHANNEL_ID  = os.environ.get("CHANNEL_ID")
-CHECK_EVERY = 5
+CHECK_EVERY = 2
 DB_PATH     = "seen.db"
 
 if not BOT_TOKEN or not CHANNEL_ID:
