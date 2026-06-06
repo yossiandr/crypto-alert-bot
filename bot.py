@@ -86,10 +86,9 @@ SOURCES = [
     },
     {
         "name": "Gate.io",
-        "type": "gate_api",
+        "type": "scrape",
         "url": "https://www.gate.com/announcements/latest",
         "logo": "🔵",
-        "base_link": "https://www.gate.com/announcements/latest",
     },
     {
         "name": "MEXC",
@@ -240,51 +239,30 @@ def fetch_binance_api(source):
 
 
 def fetch_gate_api(source):
-    log.info("🔌 Cek API: Gate.io")
+    log.info("🕷️ Scrape: Gate.io")
     try:
-        r = requests.get(
-            source["url"],
-            headers=HEADERS,
-            timeout=15
-        )
-        log.info(f"STATUS: {r.status_code}")
-        log.info(f"CONTENT-TYPE: {r.headers.get('Content-Type')}")
-        # tampilkan sebagian response
-        log.info(f"RESPONSE: {r.text[:1000]}")
-        data = r.json()
-        items = (
-            data.get("data", {}).get("list", [])
-            or data.get("data", [])
-            or data.get("list", [])
-            or []
-        )
-        log.info(f"   → {len(items)} artikel ditemukan")
-        for item in items:
-            title = item.get("title", "") or item.get("name", "")
-            uid = str(item.get("id", "") or item.get("article_id", ""))
-            link = (
-                item.get("url", "")
-                or f"{source['base_link']}{uid}"
-            )
-            if not uid or not is_relevant(title):
+        r = requests.get(source["url"],headers=HEADERS,timeout=15)
+        soup = BeautifulSoup(r.text, "html.parser")
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            title = a.get_text(" ", strip=True)
+            log.info(f"GATE DEBUG: {title[:100]} -> {href}")
+            if len(title) < 10:
                 continue
-            uid_key = f"gate_{uid}"
-            if is_seen(uid_key):
+            if not is_relevant(title):
                 continue
-            mark_seen(uid_key)
+            if href.startswith("/"):
+                href = "https://www.gate.com/announcements/latest" + href
+            uid = f"gate_{href}"
+            if is_seen(uid):
+                continue
+            mark_seen(uid)
             if FIRST_RUN:
                 continue
-            send_telegram(
-                format_message(
-                    source["logo"],
-                    source["name"],
-                    title,
-                    link
-                )
-            )
+            send_telegram(format_message(source["logo"],source["name"],title,href))
             time.sleep(1)
     except Exception as e:
-        log.error(f"❌ Error API Gate.io: {e}")
+        log.error(f"❌ Error Gate.io: {e}")
 
 
 def fetch_bybit_scrape(source):
@@ -379,8 +357,8 @@ def check_all():
             fetch_binance_scrape(source)
         elif t == "binance_api":
             fetch_binance_api(source)
-        elif t == "gate_api":
-            fetch_gate_api(source)
+        elif t == "gate_scrape":
+            fetch_gate_scrape(source)
         elif t == "kucoin_api":
             fetch_kucoin_api(source)
         elif t == "bybit_scrape":
