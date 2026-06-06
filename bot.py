@@ -9,8 +9,8 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from bs4 import BeautifulSoup
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────────
-BOT_TOKEN   = 8933095824:AAEJlBnhXRF_xt4qoM7PaOx3aDYlWGvseVo
-CHANNEL_ID  = @cex_alertbot
+BOT_TOKEN   = os.environ.get("BOT_TOKEN")
+CHANNEL_ID  = os.environ.get("CHANNEL_ID")
 CHECK_EVERY = 2
 DB_PATH     = "seen.db"
 
@@ -175,33 +175,98 @@ HEADERS = {
 
 # ─── FETCHERS ──────────────────────────────────────────────────────────────────
 
+def fetch_binance_scrape(source):
+    """Scrape halaman list/157 dan list/161 Binance langsung."""
+    log.info(f"🕷️  Scrape: Binance ({source['url'].split('/')[-1]})")
+    try:
+        r = requests.get(source["url"], headers=HEADERS, timeout=15)
+        soup = BeautifulSoup(r.text, "html.parser")
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            # Link artikel Binance: /en/support/announcement/detail/xxxx
+            if "/support/announcement/detail/" not in href:
+                continue
+            title = a.get_text(strip=True)
+            if len(title) < 10 or not is_relevant(title):
+                continue
+            if href.startswith("/"):
+                href = source["base_link"] + href
+            uid = f"binance_{href.split('/')[-1]}"
+            if is_seen(uid):
+                continue
+            mark_seen(uid)
+            send_telegram(format_message(source["logo"], source["name"], title, href))
+            time.sleep(1)
+    except Exception as e:
+        log.error(f"❌ Error scrape Binance: {e}")
+
+
 def fetch_binance_api(source):
-    log.info("🔌 Cek API: Binance")
+    cat = source.get("catalog_id", "?")
+    log.info(f"🔌 Cek API: Binance (catalog {cat})")
     try:
         r = requests.get(source["url"], headers=HEADERS, timeout=15)
         data = r.json()
-        # Binance bisa return di catalogs[0].articles atau langsung articles
+        # Binance kadang return di catalogs[0].articles, kadang langsung articles
         catalogs = data.get("data", {}).get("catalogs", [])
         articles = []
         if catalogs:
-            for cat in catalogs:
-                articles.extend(cat.get("articles", []))
+            # Cari catalog yang sesuai catalog_id
+            for cat_data in catalogs:
+                if cat_data.get("catalogId") == source.get("catalog_id"):
+                    articles = cat_data.get("articles", [])
+                    break
+            # Kalau tidak ketemu, ambil semua
+            if not articles:
+                for cat_data in catalogs:
+                    articles.extend(cat_data.get("articles", []))
         else:
             articles = data.get("data", {}).get("articles", [])
 
+        log.info(f"   → {len(articles)} artikel ditemukan")
         for article in articles:
             title = article.get("title", "")
             code  = article.get("code", "")
             if not code or not is_relevant(title):
                 continue
-            if is_seen(code):
+            uid = f"binance_{code}"
+            if is_seen(uid):
                 continue
-            mark_seen(code)
+            mark_seen(uid)
             link = f"{source['base_link']}{code}"
             send_telegram(format_message(source["logo"], source["name"], title, link))
             time.sleep(1)
     except Exception as e:
         log.error(f"❌ Error API Binance: {e}")
+
+
+def fetch_gate_api(source):
+    log.info(f"🔌 Cek API: Gate.io")
+    try:
+        r = requests.get(source["url"], headers=HEADERS, timeout=15)
+        data = r.json()
+        # Coba beberapa struktur response Gate.io
+        items = (
+            data.get("data", {}).get("list", [])
+            or data.get("data", [])
+            or data.get("list", [])
+            or []
+        )
+        log.info(f"   → {len(items)} artikel ditemukan")
+        for item in items:
+            title = item.get("title", "") or item.get("name", "")
+            uid   = str(item.get("id", "") or item.get("article_id", ""))
+            link  = item.get("url", "") or f"{source['base_link']}{uid}"
+            if not uid or not is_relevant(title):
+                continue
+            uid_key = f"gate_{uid}"
+            if is_seen(uid_key):
+                continue
+            mark_seen(uid_key)
+            send_telegram(format_message(source["logo"], source["name"], title, link))
+            time.sleep(1)
+    except Exception as e:
+        log.error(f"❌ Error API Gate.io: {e}")
 
 
 def fetch_bybit_scrape(source):
@@ -286,8 +351,12 @@ def check_all():
     log.info("🔄 Mulai pengecekan semua CEX...")
     for source in SOURCES:
         t = source["type"]
-        if t == "binance_api":
+        if t == "binance_scrape":
+            fetch_binance_scrape(source)
+        elif t == "binance_api":
             fetch_binance_api(source)
+        elif t == "gate_api":
+            fetch_gate_api(source)
         elif t == "kucoin_api":
             fetch_kucoin_api(source)
         elif t == "bybit_scrape":
@@ -302,7 +371,7 @@ def send_test_message():
         "🤖 <b>Crypto CEX Alarm Bot Aktif!</b>\n\n"
         "✅ Bot berhasil terhubung ke channel ini.\n"
         "📡 Memantau: Binance, Bybit, OKX, KuCoin, Gate.io, MEXC, BingX, Poloniex, HTX\n"
-        "⏱ Pengecekan setiap <b>5 menit</b> otomatis.\n\n"
+        "⏱ Pengecekan setiap <b>2 menit</b> otomatis.\n\n"
         "🔔 Notif untuk:\n"
         "• Delisting koin\n"
         "• Token migration / contract change\n"
