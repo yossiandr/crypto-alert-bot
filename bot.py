@@ -54,7 +54,7 @@ SOURCES = [
         "type": "binance_api",
         "catalog_id": 161,
         "url": "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20&catalogId=161",
-        "logo": "🟡",
+        "logo": "⛔",
         "base_link": "https://www.binance.com/en/support/announcement/",
     },
     {
@@ -62,57 +62,57 @@ SOURCES = [
         "type": "binance_api",
         "catalog_id": 157,
         "url": "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageNo=1&pageSize=20&catalogId=157",
-        "logo": "🟡",
+        "logo": "⚠️",
         "base_link": "https://www.binance.com/en/support/announcement/",
     },
     {
         "name": "Bybit",
         "type": "bybit_scrape",
         "url": "https://announcements.bybit.com/en/?category=&page=1",
-        "logo": "🟠",
+        "logo": "⛔",
         "base_link": "https://announcements.bybit.com",
     },
     {
         "name": "OKX",
         "type": "scrape",
         "url": "https://www.okx.com/help/section/announcements-latest-announcements",
-        "logo": "⚫",
+        "logo": "⛔",
     },
     {
         "name": "KuCoin",
         "type": "kucoin_api",
         "url": "https://api.kucoin.com/api/ua/v1/market/announcement?annType=latest-announcements&lang=en_US&page=1&pageSize=20",
-        "logo": "🟢",
+        "logo": "⛔",
     },
     {
         "name": "Gate.io",
         "type": "scrape",
         "url": "https://www.gate.com/announcements/latest",
-        "logo": "🔵",
+        "logo": "⛔",
     },
     {
         "name": "MEXC",
         "type": "scrape",
         "url": "https://www.mexc.com/support/sections/360000030572",
-        "logo": "🔷",
+        "logo": "⛔",
     },
     {
         "name": "BingX",
         "type": "scrape",
         "url": "https://bingx.com/en/support/categories/360002065274",
-        "logo": "🟣",
+        "logo": "⛔",
     },
     {
         "name": "Poloniex",
         "type": "scrape",
         "url": "https://support.poloniex.com/hc/en-us/sections/360006455114-Latest-Announcements",
-        "logo": "🔴",
+        "logo": "⛔",
     },
     {
         "name": "HTX",
         "type": "scrape",
         "url": "https://www.htx.com/support/",
-        "logo": "🟤",
+        "logo": "⛔",
     },
 ]
 
@@ -389,7 +389,6 @@ def send_test_message():
 if __name__ == "__main__":
     init_db()
     log.info("🚀 Bot dimulai!")
-    send_test_message()
     check_all()
     FIRST_RUN = False
     scheduler = BlockingScheduler(timezone="UTC")
